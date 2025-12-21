@@ -1,0 +1,16 @@
+bert-score
+jinja2
+json-repair
+langgraph
+mem0ai
+nltk
+numpy
+openai
+pandas
+python-dotenv
+requests
+rouge-score
+sentence-transformers
+tiktoken
+tqdm
+zep-cloud

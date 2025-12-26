@@ -15,7 +15,7 @@ This repo contains **MemR3**, a memory reasoning and retrieval agent system for 
 - Zep mode requires `ZEP_API_KEY`.
 
 ## Datasets
-We evaluate on the LoCoMo 10 conversation set.  
+We evaluate on the LoCoMo 10 conversation set using the Google Drive repository of the mem0 team: [LOCOMO Dataset](https://drive.google.com/drive/folders/1L-cTjTm0ohMsitsHg4dijSPJtqNflwX-?usp=drive_link).  
 - `dataset/locomo10.json` is the base dataset for MemR3.
 - `dataset/locomo10_rag.json` is the chunking-friendly variant used by the RAG backend.
 

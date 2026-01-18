@@ -25,11 +25,15 @@ We also evaluate the [LongMemEval dataset](https://github.com/xiaowu0162/LongMem
 ## Usage (RAG and Zep)
 Use the provided scripts to reproduce experiments and evaluation.
 ```
-bash example_rag.sh
+bash example_rag_locomo.sh
 ```
 
 ```
-bash example_zep.sh
+bash example_zep_locomo.sh
+```
+
+```
+bash example_zep_longmemeval.sh
 ```
 
 Outputs are saved under `results/`, and `evals.py` plus `generate_scores.py` compute BLEU/F1/LLM-judge summaries.

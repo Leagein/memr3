@@ -201,3 +201,8 @@ dataset/
 
 job*.sh
 job.sh
+
+src/zep/zep_ingestion_longmemeval.py
+
+longmemeval_shard_merge.py
+job_longmemeval_array.sh

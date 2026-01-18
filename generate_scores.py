@@ -107,8 +107,8 @@ def main() -> None:
 
     df = pd.DataFrame(all_items)
 
-    # Convert category to numeric type
-    df["category"] = pd.to_numeric(df["category"])
+    # Convert category to string type (supports datasets with non-numeric categories).
+    df["category"] = df["category"].astype(str)
 
     # Calculate mean scores by category
     result = df.groupby("category").agg({"bleu_score": "mean", "f1_score": "mean", "llm_score": "mean"}).round(4)
@@ -118,8 +118,9 @@ def main() -> None:
 
     # Reorder categories to match expected display order
     # desired_order = [4, 1, 3, 2]
-    desired_order = [1, 2, 3, 4]
-    order = [cat for cat in desired_order if cat in result.index] + [cat for cat in result.index if cat not in desired_order]
+    desired_order = [str(cat) for cat in [1, 2, 3, 4]]
+    remaining = sorted([cat for cat in result.index if cat not in desired_order])
+    order = [cat for cat in desired_order if cat in result.index] + remaining
     result = result.loc[order]
 
     print("Mean Scores Per Category:")

@@ -29,29 +29,27 @@ def main():
     parser.add_argument("--is_graph", action="store_true", default=False, help="Whether to use graph-based search")
     parser.add_argument("--model_tag", type=str, default="gpt4.1", help="Model tag used in output filenames")
     parser.add_argument("--seed", type=int, default=1, help="Seed identifier used in output filenames")
-    parser.add_argument(
-        "--max_iterations", type=int, default=5, help="Maximum reasoning iterations for the memr3 workflow"
-    )
-    parser.add_argument(
-        "--run_id",
-        type=str,
-        default=os.getenv("ZEP_RUN_ID", "1"),
-        help="Run identifier to align Zep add/search/memr3 datasets",
-    )
+    parser.add_argument("--max_iterations", "--max_iteration", dest="max_iterations", type=int, default=5, help="Maximum reasoning iterations for the memr3 workflow")
+    parser.add_argument("--data_path", type=str, default=None, help="Path to the dataset file (overrides per-technique default).")
+    parser.add_argument("--dataset_tag", type=str, default=None, help="Optional dataset tag included in output filenames.")
+    parser.add_argument("--run_id", type=str, default=os.getenv("ZEP_RUN_ID", "1"), help="Run identifier to align Zep add/search/memr3 datasets")
 
     args = parser.parse_args()
 
     # Add your experiment logic here
     print(f"Running experiments with technique: {args.technique_type}, chunk size: {args.chunk_size}")
     model_tag = _sanitize_tag(args.model_tag)
+    dataset_tag = _sanitize_tag(args.dataset_tag) if args.dataset_tag else None
+    tag_suffix = f"_{dataset_tag}" if dataset_tag else ""
 
     if args.technique_type == "memr3_rag":
         output_file_path = os.path.join(
             args.output_folder,
-            f"memr3_results_{args.chunk_size}_k{args.top_k}_{model_tag}_{args.max_iterations}_seed{args.seed}.json",
+            f"memr3_results_{args.chunk_size}_k{args.top_k}_{model_tag}{tag_suffix}_{args.max_iterations}_seed{args.seed}.json",
         )
+        data_path = args.data_path or "dataset/locomo10_rag.json"
         memr3_manager = MemR3RAGManager(
-            data_path="dataset/locomo10_rag.json",
+            data_path=data_path,
             chunk_size=args.chunk_size,
             top_k=args.top_k,
             max_iterations=args.max_iterations,
@@ -60,10 +58,11 @@ def main():
     elif args.technique_type == "memr3_zep":
         output_file_path = os.path.join(
             args.output_folder,
-            f"memr3_zep_results_limit{args.top_k}_{model_tag}_{args.max_iterations}_seed{args.seed}.json",
+            f"memr3_zep_results_limit{args.top_k}_{model_tag}{tag_suffix}_{args.max_iterations}_seed{args.seed}.json",
         )
+        data_path = args.data_path or "dataset/locomo10.json"
         memr3_manager = MemR3ZepManager(
-            data_path="dataset/locomo10.json",
+            data_path=data_path,
             search_limit=args.top_k,
             max_iterations=args.max_iterations,
             run_id=args.run_id,

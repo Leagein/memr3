@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import tiktoken
 from sentence_transformers import CrossEncoder
+from openai import OpenAI
 
 from src.memr3_base import BaseMemR3Manager, MemoryState
 
@@ -106,6 +107,12 @@ class MemR3RAGManager(BaseMemR3Manager):
 
         super().__init__(data_path=data_path, top_k=top_k, max_iterations=max_iterations)
 
+        embedding_api_key = os.getenv("EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
+        embedding_base_url = os.getenv("EMBEDDING_BASE_URL") or os.getenv(
+            "OPENAI_BASE_URL", "https://api.openai.com/v1"
+        )
+        self.embedding_client = OpenAI(api_key=embedding_api_key, base_url=embedding_base_url)
+
         try:
             self.encoding = tiktoken.encoding_for_model(self.embedding_model)
         except Exception:
@@ -119,7 +126,7 @@ class MemR3RAGManager(BaseMemR3Manager):
         if rerank_model_name == "":
             rerank_model_name = None
         self.retriever = MaskedRetriever(
-            self.client,
+            self.embedding_client,
             self.embedding_model,
             candidate_k=candidate_k,
             rerank_model=rerank_model_name,
@@ -175,7 +182,7 @@ class MemR3RAGManager(BaseMemR3Manager):
 
         # Mirror rag.py: flatten history then slice by token count using the embedding encoding.
         document = self._clean_chat_history(chat_history)
-        tokens = self.encoding.encode(document)
+        tokens = self.encoding.encode(document, disallowed_special=())
 
         chunks: List[str] = []
         for i in range(0, len(tokens), self.chunk_size):

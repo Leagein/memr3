@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Dict, List, Literal, Optional, TypedDict
@@ -55,9 +56,6 @@ Even though the phrase says "yesterday," the timestamp shows the event was recor
 
 # Draft answer:
 {{DRAFT_ANSWER}}
-
-# Question:
-{{QUESTION}}
 
 Answer:
 """
@@ -520,20 +518,22 @@ class BaseMemR3Manager(ABC):
         evidence_list = evidence if isinstance(evidence, list) else self._normalize_evidence(evidence)
         evidence_block = self._format_evidence_block(evidence_list) if evidence_list else "No evidence provided."
         draft_block = draft_answer if draft_answer else "No draft answer."
-        prompt = self.answer_template.render(
-            QUESTION=question,
+        system_prompt = self.answer_template.render(
             EVIDENCE=evidence_block,
             DRAFT_ANSWER=draft_block,
         )
         start = time.time()
-        max_retries = 5
+        max_retries = 1
         last_error = ""
         for attempt in range(max_retries + 1):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     temperature=0.0,
-                    messages=[{"role": "system", "content": prompt}],
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question},
+                    ],
                 )
                 content = (response.choices[0].message.content or "").strip()
                 if not content:
@@ -630,17 +630,31 @@ class BaseMemR3Manager(ABC):
 
         for key_raw, value in tqdm(iterable, desc="Processing conversations"):
             key = str(key_raw)
-            chat_history = value.get("conversation") if isinstance(value, dict) else None
-            questions = []
-            if isinstance(value, dict):
-                questions = value.get("question") or value.get("qa") or []
+            is_longmemeval = self._is_longmemeval_entry(value)
+            if is_longmemeval:
+                question_id = value.get("question_id") if isinstance(value, dict) else None
+                if question_id:
+                    key = str(question_id)
+                chat_history = self._build_longmemeval_chat_history(value)
+                questions = self._build_longmemeval_questions(value)
+            else:
+                chat_history = value.get("conversation") if isinstance(value, dict) else None
+                questions = []
+                if isinstance(value, dict):
+                    questions = value.get("question") or value.get("qa") or []
+            if chat_history is None:
+                chat_history = []
             conversation_context = self._prepare_conversation_context(key, chat_history)
             answered_for_key = answered_questions.setdefault(key, set())
 
             for item in tqdm(questions, desc="Answering questions", leave=False):
                 question = item.get("question") if isinstance(item, dict) else None
                 answer = item.get("answer", "") if isinstance(item, dict) else ""
-                category_raw = item.get("category", 0) if isinstance(item, dict) else 0
+                category_raw = (
+                    item.get("category", item.get("question_type", 0))
+                    if isinstance(item, dict)
+                    else 0
+                )
                 try:
                     category = int(category_raw)
                 except (TypeError, ValueError):
@@ -666,6 +680,64 @@ class BaseMemR3Manager(ABC):
 
         with open(output_file_path, "w") as f:
             json.dump(final_results, f, indent=4)
+
+    @staticmethod
+    def _is_longmemeval_entry(entry: Any) -> bool:
+        return (
+            isinstance(entry, dict)
+            and isinstance(entry.get("haystack_sessions"), list)
+            and isinstance(entry.get("question"), str)
+        )
+
+    @staticmethod
+    def _format_longmemeval_timestamp(date_str: Optional[str], offset_seconds: int) -> str:
+        if not date_str:
+            return "unknown"
+        try:
+            base_time = datetime.strptime(date_str, "%Y/%m/%d (%a) %H:%M")
+        except ValueError:
+            return date_str
+        base_time = base_time.replace(tzinfo=timezone.utc)
+        timestamp = base_time + timedelta(seconds=offset_seconds)
+        return timestamp.isoformat().replace("+00:00", "Z")
+
+    def _build_longmemeval_chat_history(self, entry: Dict[str, Any]) -> List[Dict[str, str]]:
+        sessions = entry.get("haystack_sessions") or []
+        session_dates = entry.get("haystack_dates") or []
+        chat_history: List[Dict[str, str]] = []
+
+        for session_idx, session in enumerate(sessions):
+            if not session:
+                continue
+            date_str = session_dates[session_idx] if session_idx < len(session_dates) else None
+            for msg_idx, msg in enumerate(session):
+                if not isinstance(msg, dict):
+                    continue
+                content = msg.get("content")
+                if content is None:
+                    continue
+                chat_history.append(
+                    {
+                        "timestamp": self._format_longmemeval_timestamp(date_str, msg_idx),
+                        "speaker": msg.get("role") or "unknown",
+                        "text": content,
+                    }
+                )
+
+        return chat_history
+
+    @staticmethod
+    def _build_longmemeval_questions(entry: Dict[str, Any]) -> List[Dict[str, Any]]:
+        question = entry.get("question")
+        if not question:
+            return []
+        return [
+            {
+                "question": question,
+                "answer": entry.get("answer", ""),
+                "category": entry.get("question_type", 0),
+            }
+        ]
 
     def _load_existing_results(
         self, output_file_path: str

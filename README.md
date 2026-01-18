@@ -19,6 +19,9 @@ We evaluate on the LoCoMo 10 conversation set using the Google Drive repository 
 - `dataset/locomo10.json` is the base dataset for MemR3.
 - `dataset/locomo10_rag.json` is the chunking-friendly variant used by the RAG backend.
 
+We also evaluate the [LongMemEval dataset](https://github.com/xiaowu0162/LongMemEval).
+- `longmemeval_s_cleaned.json`.
+
 ## Usage (RAG and Zep)
 Use the provided scripts to reproduce experiments and evaluation.
 ```
@@ -40,8 +43,9 @@ Outputs are saved under `results/`, and `evals.py` plus `generate_scores.py` com
 ```
 |-- README.md
 |-- evals.py
-|-- example_rag.sh
-|-- example_zep.sh
+|-- example_rag_locomo.sh
+|-- example_zep_locomo.sh
+|-- example_rag_longmemeval.sh
 |-- generate_scores.py
 |-- job.sh
 |-- prompts.py
@@ -49,14 +53,15 @@ Outputs are saved under `results/`, and `evals.py` plus `generate_scores.py` com
 |-- dataset
     |-- locomo10.json
     |-- locomo10_rag.json
+    |-- longmemeval_s_cleaned.json
 |-- images
     |-- pipeline.png
     |-- motivation.png
 |-- metrics
     |-- llm_judge.py
     |-- utils.py
-|-- rag_cache-4.1
-|-- rag_cache-4o
+|-- rag_cache
+|-- rag_longmemeval_cache
 |-- results
 |-- src
     |-- memr3_base.py
